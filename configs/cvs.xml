@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<cvs>
+    <database>
+        <file>docs\default.db</file>
+        <password></password>
+    </database>
+    <function>
+        <ocsp>
+            <enable>true</enable>
+            <address>127.0.0.1</address>
+            <port>6960</port>
+        </ocsp>
+        <crl>
+            <enable>true</enable>
+            <address>127.0.0.1</address>
+            <port>8080</port>
+        </crl>
+    </function>
+</cvs>

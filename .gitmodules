@@ -1,0 +1,3 @@
+[submodule "vendor/golang.org/x/crypto"]
+	path = vendor/golang.org/x/crypto
+	url = https://github.com/LeviMarvin/go-x-crypto.git
