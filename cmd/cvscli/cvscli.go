@@ -13,6 +13,8 @@ import (
 	"gorm.io/gorm"
 	"io"
 	"os"
+	"strconv"
+	"time"
 )
 
 /*
@@ -25,14 +27,15 @@ Subcommands:
     exec - Execute functions.
 
 Subcommands for subcommands:
-    cert add - Add a certificate into database.
-    cert del - Delete a certificate from database.
+    cert list - List all certificates in database.
+    cert del - Remove a certificate in database.
     cert import - Import certificate from file into database.
     cert revoke - Revoke a certificate.
 
     responder add - Add an OCSP responder.
     responder del - Delete an OCSP responder.
     responder set - Set properties of the OCSP responder.
+    responder list - List all registered responders.
 
     distributor add - Add a CRL distributor.
     distributor del - Delete a CRL distributor.
@@ -54,37 +57,43 @@ var certCmd = cobra.Command{
 	Use:   "cert",
 	Short: "",
 	Long:  "",
-	Run:   runCertCmd,
 }
 
-func runCertCmd(cmd *cobra.Command, args []string) {}
-
-var certAddCmd = cobra.Command{
-	Use:   "add",
-	Short: "",
-	Long:  "",
-	Run:   runCertAddCmd,
+var certListCmd = cobra.Command{
+	Use:   "list",
+	Short: "List all certificates in database.",
+	Long:  "Show a list of certificates in database with its ID and content.",
+	Run:   runCertListCmd,
 }
 
-func runCertAddCmd(cmd *cobra.Command, args []string) {}
+func runCertListCmd(_ *cobra.Command, _ []string) {
+	var certs []*types.CertificateInfo
+	dao := shared.GetDAO()
+	dao.Find(&certs)
+	fmt.Println("[ID]\tSN\tPeriod\tCA\tRevoked")
+	for _, cert := range certs {
+		sn := hex.EncodeToString(cert.SerialNumber)
+		fmt.Printf("[%d]\t%-"+strconv.Itoa(len(sn))+"s\t%-30s\t%-5v\t%-5v\n", cert.ID, sn, cert.NotAfter, cert.IsCA, cert.IsRevoked)
+	}
+}
 
 var certDelCmd = cobra.Command{
 	Use:   "del",
-	Short: "",
-	Long:  "",
+	Short: "Remove a certificate in database.",
+	Long:  "Remove a certificate in database, you will never see it again in the database.",
 	Run:   runCertDelCmd,
 }
 
-func runCertDelCmd(cmd *cobra.Command, args []string) {}
+func runCertDelCmd(cmd *cobra.Command, _ []string) {}
 
 var certImportCmd = cobra.Command{
 	Use:   "import",
-	Short: "",
-	Long:  "",
+	Short: "Import certificate from file into database.",
+	Long:  "Import certificate from file into database and index it.",
 	Run:   runCertImportCmd,
 }
 
-func runCertImportCmd(cmd *cobra.Command, args []string) {
+func runCertImportCmd(cmd *cobra.Command, _ []string) {
 	path := cmd.Flag("file").Value.String()
 
 	// Input options check
@@ -121,20 +130,41 @@ func runCertImportCmd(cmd *cobra.Command, args []string) {
 
 var certRevokeCmd = cobra.Command{
 	Use:   "revoke",
-	Short: "",
-	Long:  "",
+	Short: "Revoke an certificate",
+	Long:  "Revoke an certificate with date and reason",
 	Run:   runCertRevokeCmd,
 }
 
-func runCertRevokeCmd(cmd *cobra.Command, args []string) {
+func runCertRevokeCmd(cmd *cobra.Command, _ []string) {
 	var err error
+	var reasonCode int
+	var revocationTime time.Time
 	path := cmd.Flag("file").Value.String()
 	sn := cmd.Flag("sn").Value.String()
+	date := cmd.Flag("date").Value.String()
+	reason := cmd.Flag("reason").Value.String()
 
 	// Input options check
 	if (path == "") && (sn == "") {
 		fmt.Println("Invalid command options, please check your input!")
 		return
+	}
+	// Parse the reason code and revocation date
+	if reason != "" {
+		reasonCode, err = strconv.Atoi(reason)
+		util.CheckError(err)
+		if err != nil {
+			fmt.Println("Get reason failed, please check your input.")
+		}
+	}
+	if date != "" {
+		revocationTime, err = time.Parse("2006.01.02 15:04:05", date)
+		util.CheckError(err)
+		if err != nil {
+			fmt.Println("Get time failed, please check your input.")
+		}
+	} else {
+		revocationTime = time.Now()
 	}
 
 	dao := shared.GetDAO()
@@ -152,6 +182,8 @@ func runCertRevokeCmd(cmd *cobra.Command, args []string) {
 		dao.Find(&searchResult, &certInfo)
 		if searchResult.SubjectKeyHash == certInfo.SubjectKeyHash {
 			searchResult.IsRevoked = true
+			searchResult.RevocationTime = revocationTime
+			searchResult.RevocationReason = reasonCode
 			dao.Where(&certInfo).Updates(&searchResult)
 			tmpResult := types.CertificateInfo{}
 			dao.Find(&tmpResult, &searchResult)
@@ -167,6 +199,8 @@ func runCertRevokeCmd(cmd *cobra.Command, args []string) {
 		if bytes.Equal(searchResult.SerialNumber, byteSN) {
 			newItem := searchResult
 			newItem.IsRevoked = true
+			newItem.RevocationTime = revocationTime
+			newItem.RevocationReason = reasonCode
 			dao.Where(&searchResult).Updates(&newItem)
 			tmpResult := types.CertificateInfo{}
 			dao.Find(&tmpResult, &newItem)
@@ -183,18 +217,18 @@ func runCertRevokeCmd(cmd *cobra.Command, args []string) {
 // cvscli responder - START
 var responderCmd = cobra.Command{
 	Use:   "responder",
-	Short: "",
-	Long:  "",
+	Short: "Responder management command",
+	Long:  "Add/Delete/Set responders via this command.",
 }
 
 var responderAddCmd = cobra.Command{
 	Use:   "add",
-	Short: "",
-	Long:  "",
+	Short: "Add an OCSP responder.",
+	Long:  "Add OCSP responder into the database.",
 	Run:   runResponderAddCmd,
 }
 
-func runResponderAddCmd(cmd *cobra.Command, args []string) {
+func runResponderAddCmd(cmd *cobra.Command, _ []string) {
 	period := cmd.Flag("period").Value.String()
 	cacertPath := cmd.Flag("cacert").Value.String()
 	certPath := cmd.Flag("cert").Value.String()
@@ -255,21 +289,71 @@ func runResponderAddCmd(cmd *cobra.Command, args []string) {
 
 var responderDelCmd = cobra.Command{
 	Use:   "del",
-	Short: "",
+	Short: "Delete an OCSP responder.",
 	Long:  "",
 	Run:   runResponderDelCmd,
 }
 
-func runResponderDelCmd(cmd *cobra.Command, args []string) {}
+func runResponderDelCmd(cmd *cobra.Command, _ []string) {
+	var dbId int
+	var err error
+	searchCondition := types.CertificateInfo{}
+	searchResult := types.CertificateInfo{}
+	inputId := cmd.Flag("id").Value.String()
+	inputSn := cmd.Flag("sn").Value.String()
+	if inputId == "" && inputSn == "" {
+		fmt.Println("Invalid command options, please check your input!")
+		return
+	}
+	if inputId != "" {
+		dbId, err = strconv.Atoi(inputId)
+		if err != nil {
+			fmt.Println("Convert inputted ID to int failed, please check your input.")
+			return
+		}
+		searchCondition.ID = uint(dbId)
+	}
+	if inputSn != "" {
+		rawSn, err := hex.DecodeString(inputSn)
+		if err != nil {
+			fmt.Println("Convert inputted SN to bytes failed, please check your input.")
+			return
+		}
+		searchCondition.SerialNumber = rawSn
+	}
+	dao := shared.GetDAO()
+	tx := dao.Find(&searchResult, &searchCondition)
+	if !searchResult.IsEmpty() {
+		if searchResult.ID == searchCondition.ID {
+			tx.Delete(&searchResult)
+		}
+	}
+}
 
 var responderSetCmd = cobra.Command{
 	Use:   "set",
-	Short: "",
-	Long:  "",
+	Short: "Set properties of the OCSP responder.",
+	Long:  "Set properties of the OCSP responder. Like the enabling status of Nonce, and more.",
 	Run:   runResponderSetCmd,
 }
 
-func runResponderSetCmd(cmd *cobra.Command, args []string) {}
+func runResponderSetCmd(cmd *cobra.Command, _ []string) {}
+
+var responderListCmd = cobra.Command{
+	Use:   "list",
+	Short: "List all registered responders.",
+	Run:   runResponderListCmd,
+}
+
+func runResponderListCmd(_ *cobra.Command, _ []string) {
+	var dbResponders []*types.DbResponder
+	dao := shared.GetDAO()
+	dao.Find(&dbResponders)
+	fmt.Println("[ID]\tName\tPeriod")
+	for _, responder := range dbResponders {
+		fmt.Printf("[%d]\t%"+strconv.Itoa(len(responder.Name))+"s\t%s\n", responder.ID, responder.Name, responder.UpdatePeriod)
+	}
+}
 
 // cvscli responder - END
 
@@ -289,12 +373,14 @@ func main() {
 	shared.InitSharedStorage()
 
 	// Add subcommands for subcommand "cert"
-	certCmd.AddCommand(&certAddCmd)
+	certCmd.AddCommand(&certListCmd)
 	certCmd.AddCommand(&certDelCmd)
 	certImportCmd.Flags().String("file", "", "The file of certificate needed to be imported.")
 	certCmd.AddCommand(&certImportCmd)
 	certRevokeCmd.Flags().String("file", "", "The file of certificate needed to be revoked.")
 	certRevokeCmd.Flags().String("sn", "", "The Serial Number (HEX string) of certificate which needed to be revoked.")
+	certRevokeCmd.Flags().String("date", "", "The revocation time, default is now. Format: \"YYYY.MM.DD hh:mm:ss\"")
+	certRevokeCmd.Flags().String("reason", "0", "The revocation reason of certificate.")
 	certCmd.AddCommand(&certRevokeCmd)
 	// Add subcommands for subcommand "responder"
 	responderAddCmd.Flags().String("period", "5s", "The response update period (the next response will be generated after this time).")
@@ -305,6 +391,7 @@ func main() {
 	responderCmd.AddCommand(&responderAddCmd)
 	responderCmd.AddCommand(&responderDelCmd)
 	responderCmd.AddCommand(&responderSetCmd)
+	responderCmd.AddCommand(&responderListCmd)
 
 	// Add subcommands
 	rootCmd.AddCommand(&certCmd)
