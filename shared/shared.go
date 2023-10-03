@@ -1,3 +1,21 @@
+/*
+   Certificate Validation Server (CVS) is a server for CA about returning certificate status via OCSP and CRL.
+   Copyright (C) 2023  Levi Marvin (LIU, YUANCHEN)
+
+   This program is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
 package shared
 
 import (
@@ -28,6 +46,7 @@ var CrlDistAddress = ""
 // InitSharedStorage Each independent application should call this function at first.
 // This function will auto prepare shared objects.
 func InitSharedStorage() {
+	printLicense()
 	loadXmlConfig()
 	connectDatabase()
 	loadResponders()
@@ -116,4 +135,8 @@ func loadResponders() {
 		Responders = append(Responders, responder)
 	}
 	fmt.Printf("Loaded %d of all responders from database.\n", len(Responders))
+}
+
+func printLicense() {
+	fmt.Println("Certificate Validation Server (CVS)  Copyright (C) 2023  Levi Marvin (LIU, YUANCHEN)\nThis program comes with ABSOLUTELY NO WARRANTY; for details read LICENSE.\nThis is free software, and you are welcome to redistribute it\nunder certain conditions; Read LICENSE for details.")
 }
