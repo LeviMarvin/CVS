@@ -55,8 +55,7 @@ var rootCmd = cobra.Command{
 // cvscli cert - START
 var certCmd = cobra.Command{
 	Use:   "cert",
-	Short: "",
-	Long:  "",
+	Short: "Certificate management command",
 }
 
 var certListCmd = cobra.Command{
@@ -84,7 +83,41 @@ var certDelCmd = cobra.Command{
 	Run:   runCertDelCmd,
 }
 
-func runCertDelCmd(cmd *cobra.Command, _ []string) {}
+func runCertDelCmd(cmd *cobra.Command, _ []string) {
+	var dbId int
+	var err error
+	searchCondition := types.CertificateInfo{}
+	searchResult := types.CertificateInfo{}
+	inputId := cmd.Flag("id").Value.String()
+	inputSn := cmd.Flag("sn").Value.String()
+	if inputId == "" && inputSn == "" {
+		fmt.Println("Invalid command options, please check your input!")
+		return
+	}
+	if inputId != "" {
+		dbId, err = strconv.Atoi(inputId)
+		if err != nil {
+			fmt.Println("Convert inputted ID to int failed, please check your input.")
+			return
+		}
+		searchCondition.ID = uint(dbId)
+	}
+	if inputSn != "" {
+		rawSn, err := hex.DecodeString(inputSn)
+		if err != nil {
+			fmt.Println("Convert inputted SN to bytes failed, please check your input.")
+			return
+		}
+		searchCondition.SerialNumber = rawSn
+	}
+	dao := shared.GetDAO()
+	tx := dao.Find(&searchResult, &searchCondition)
+	if !searchResult.IsEmpty() {
+		if searchResult.ID == searchCondition.ID {
+			tx.Delete(&searchResult)
+		}
+	}
+}
 
 var certImportCmd = cobra.Command{
 	Use:   "import",
@@ -295,39 +328,6 @@ var responderDelCmd = cobra.Command{
 }
 
 func runResponderDelCmd(cmd *cobra.Command, _ []string) {
-	var dbId int
-	var err error
-	searchCondition := types.CertificateInfo{}
-	searchResult := types.CertificateInfo{}
-	inputId := cmd.Flag("id").Value.String()
-	inputSn := cmd.Flag("sn").Value.String()
-	if inputId == "" && inputSn == "" {
-		fmt.Println("Invalid command options, please check your input!")
-		return
-	}
-	if inputId != "" {
-		dbId, err = strconv.Atoi(inputId)
-		if err != nil {
-			fmt.Println("Convert inputted ID to int failed, please check your input.")
-			return
-		}
-		searchCondition.ID = uint(dbId)
-	}
-	if inputSn != "" {
-		rawSn, err := hex.DecodeString(inputSn)
-		if err != nil {
-			fmt.Println("Convert inputted SN to bytes failed, please check your input.")
-			return
-		}
-		searchCondition.SerialNumber = rawSn
-	}
-	dao := shared.GetDAO()
-	tx := dao.Find(&searchResult, &searchCondition)
-	if !searchResult.IsEmpty() {
-		if searchResult.ID == searchCondition.ID {
-			tx.Delete(&searchResult)
-		}
-	}
 }
 
 var responderSetCmd = cobra.Command{
@@ -374,20 +374,22 @@ func main() {
 
 	// Add subcommands for subcommand "cert"
 	certCmd.AddCommand(&certListCmd)
+	certDelCmd.Flags().StringP("id", "i", "", "The ID of certificate witch need to be deleted.")
+	certDelCmd.Flags().StringP("sn", "n", "", "The serial number of certificate witch need to be deleted.")
 	certCmd.AddCommand(&certDelCmd)
-	certImportCmd.Flags().String("file", "", "The file of certificate needed to be imported.")
+	certImportCmd.Flags().StringP("file", "f", "", "The file of certificate needed to be imported.")
 	certCmd.AddCommand(&certImportCmd)
-	certRevokeCmd.Flags().String("file", "", "The file of certificate needed to be revoked.")
-	certRevokeCmd.Flags().String("sn", "", "The Serial Number (HEX string) of certificate which needed to be revoked.")
-	certRevokeCmd.Flags().String("date", "", "The revocation time, default is now. Format: \"YYYY.MM.DD hh:mm:ss\"")
-	certRevokeCmd.Flags().String("reason", "0", "The revocation reason of certificate.")
+	certRevokeCmd.Flags().StringP("file", "f", "", "The file of certificate needed to be revoked.")
+	certRevokeCmd.Flags().StringP("sn", "n", "", "The Serial Number (HEX string) of certificate which needed to be revoked.")
+	certRevokeCmd.Flags().StringP("date", "d", "", "The revocation time, default is now. Format: \"YYYY.MM.DD hh:mm:ss\"")
+	certRevokeCmd.Flags().StringP("reason", "r", "0", "The revocation reason of certificate.")
 	certCmd.AddCommand(&certRevokeCmd)
 	// Add subcommands for subcommand "responder"
-	responderAddCmd.Flags().String("period", "5s", "The response update period (the next response will be generated after this time).")
-	responderAddCmd.Flags().String("cacert", "", "The certificate file of the CA to which the responder belongs.")
-	responderAddCmd.Flags().String("cert", "", "The PEM-encoded signing certificate file which the responder belongs.")
-	responderAddCmd.Flags().String("key", "", "The PEM-encoded PKCS#1 signing private key which the responder belongs.")
-	responderAddCmd.Flags().String("key_type", "RSA", "The type of signing private key, only \"RSA\" and \"ECC\" are accepted.")
+	responderAddCmd.Flags().StringP("period", "p", "5s", "The response update period (the next response will be generated after this time).")
+	responderAddCmd.Flags().StringP("cacert", "a", "", "The certificate file of the CA to which the responder belongs.")
+	responderAddCmd.Flags().StringP("cert", "c", "", "The PEM-encoded signing certificate file which the responder belongs.")
+	responderAddCmd.Flags().StringP("key", "k", "", "The PEM-encoded PKCS#1 signing private key which the responder belongs.")
+	responderAddCmd.Flags().StringP("key_type", "t", "RSA", "The type of signing private key, only \"RSA\" and \"ECC\" are accepted.")
 	responderCmd.AddCommand(&responderAddCmd)
 	responderCmd.AddCommand(&responderDelCmd)
 	responderCmd.AddCommand(&responderSetCmd)
