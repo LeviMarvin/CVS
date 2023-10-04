@@ -19,3 +19,9 @@
 
 # Go workspace file
 go.work
+
+# Example files
+docs/demo/
+
+docs/default.db
+docs/test.crt
