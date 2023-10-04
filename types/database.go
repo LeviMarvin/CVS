@@ -33,10 +33,15 @@ type DbResponder struct {
 	SigningKeyType     string `gorm:"column:signer_key_type"`
 	EnableNonce        bool   `gorm:"column:nonce"`
 	EnableCutOff       bool   `gorm:"column:cutoff"`
+	EnableCrlEntry     bool   `gorm:"column:crlentry"`
 }
 
 func (DbResponder) TableName() string {
 	return "responder_list"
+}
+
+func (r DbResponder) IsEmpty() bool {
+	return r.ID == CertificateInfo{}.ID
 }
 
 type CertificateInfo struct {
@@ -66,7 +71,7 @@ type CertificateInfo struct {
 }
 
 func (certInfo CertificateInfo) IsEmpty() bool {
-	return certInfo.Version == CertificateInfo{}.Version
+	return certInfo.ID == CertificateInfo{}.ID
 }
 
 func (CertificateInfo) TableName() string {
