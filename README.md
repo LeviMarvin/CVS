@@ -28,6 +28,13 @@ CVS used XML config file for storing basic settings. The path is "<executable fi
 this file is existed and correct.
 
 ## Development
+The progress of coding:
+
+- [x] Basic OCSP Responder
+- [ ] Basic CRL Distributor
+- [ ] Full extensions support for OCSP Responder
+- [ ] Full types and extensions support for CRL Distributor
+
 CVS is using a third-party crypto library (`golang.org/x/crypto`) for advanced functions.
 You can find the customized version of x-crypto in [there](https://github.com/LeviMarvin/go-x-crypto).
 
