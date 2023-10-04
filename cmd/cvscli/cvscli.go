@@ -325,6 +325,7 @@ func runResponderAddCmd(cmd *cobra.Command, _ []string) {
 		SigningKeyType:     keyType,
 		EnableNonce:        true,
 		EnableCutOff:       false,
+		EnableCrlEntry:     false,
 	}
 
 	tmpResult := types.DbResponder{}
@@ -341,11 +342,35 @@ func runResponderAddCmd(cmd *cobra.Command, _ []string) {
 var responderDelCmd = cobra.Command{
 	Use:   "del",
 	Short: "Delete an OCSP responder.",
-	Long:  "",
+	Long:  "Delete an OCSP responder with its ID.",
 	Run:   runResponderDelCmd,
 }
 
 func runResponderDelCmd(cmd *cobra.Command, _ []string) {
+	var dbId int
+	var err error
+	searchCondition := types.CertificateInfo{}
+	searchResult := types.CertificateInfo{}
+	inputId := cmd.Flag("id").Value.String()
+	if inputId == "" {
+		fmt.Println("Invalid command options, please check your input!")
+		return
+	}
+	if inputId != "" {
+		dbId, err = strconv.Atoi(inputId)
+		if err != nil {
+			fmt.Println("Convert inputted ID to int failed, please check your input.")
+			return
+		}
+		searchCondition.ID = uint(dbId)
+	}
+	dao := shared.GetDAO()
+	tx := dao.Find(&searchResult, &searchCondition)
+	if !searchResult.IsEmpty() {
+		if searchResult.ID == searchCondition.ID {
+			tx.Delete(&searchResult)
+		}
+	}
 }
 
 var responderSetCmd = cobra.Command{
@@ -355,7 +380,38 @@ var responderSetCmd = cobra.Command{
 	Run:   runResponderSetCmd,
 }
 
-func runResponderSetCmd(cmd *cobra.Command, _ []string) {}
+func runResponderSetCmd(cmd *cobra.Command, _ []string) {
+	var dbId int
+	var nonce bool
+	var cutoff bool
+	var crlentry bool
+	var err error
+	searchCondition := types.DbResponder{}
+	searchResult := types.DbResponder{}
+	inputId := cmd.Flag("id").Value.String()
+	if inputId == "" {
+		fmt.Println("Invalid command options, please check your input!")
+		return
+	}
+	if inputId != "" {
+		dbId, err = strconv.Atoi(inputId)
+		if err != nil {
+			fmt.Println("Convert inputted ID to int failed, please check your input.")
+			return
+		}
+		searchCondition.ID = uint(dbId)
+	}
+	dao := shared.GetDAO()
+	tx := dao.Find(&searchResult, &searchCondition)
+	if !searchResult.IsEmpty() {
+		if searchResult.ID == searchCondition.ID {
+			searchResult.EnableNonce = nonce
+			searchResult.EnableCutOff = cutoff
+			searchResult.EnableCrlEntry = crlentry
+			tx.Updates(searchResult)
+		}
+	}
+}
 
 var responderListCmd = cobra.Command{
 	Use:   "list",
@@ -403,15 +459,20 @@ func main() {
 	certRevokeCmd.Flags().StringP("reason", "r", "0", "The revocation reason of certificate.")
 	certCmd.AddCommand(&certRevokeCmd)
 	// Add subcommands for subcommand "responder"
+	responderCmd.AddCommand(&responderListCmd)
 	responderAddCmd.Flags().StringP("period", "p", "5s", "The response update period (the next response will be generated after this time).")
 	responderAddCmd.Flags().StringP("cacert", "a", "", "The certificate file of the CA to which the responder belongs.")
 	responderAddCmd.Flags().StringP("cert", "c", "", "The PEM-encoded signing certificate file which the responder belongs.")
 	responderAddCmd.Flags().StringP("key", "k", "", "The PEM-encoded PKCS#1 signing private key which the responder belongs.")
 	responderAddCmd.Flags().StringP("key_type", "t", "RSA", "The type of signing private key, only \"RSA\" and \"ECC\" are accepted.")
 	responderCmd.AddCommand(&responderAddCmd)
+	responderDelCmd.Flags().StringP("id", "i", "", "The ID of responder witch need to be deleted.")
 	responderCmd.AddCommand(&responderDelCmd)
+	responderSetCmd.Flags().StringP("id", "i", "", "The ID of responder witch need to be deleted.")
+	responderSetCmd.Flags().BoolP("nonce", "n", true, "Control enable/disable the Nonce. (Default: TRUE)")
+	responderSetCmd.Flags().BoolP("cutoff", "a", false, "Control enable/disable the Archive Cutoff. (Default: FALSE)")
+	responderSetCmd.Flags().BoolP("crlentry", "c", false, "Control enable/disable the CRL Entry. (Default: FALSE)")
 	responderCmd.AddCommand(&responderSetCmd)
-	responderCmd.AddCommand(&responderListCmd)
 
 	// Add subcommands
 	rootCmd.AddCommand(&certCmd)
