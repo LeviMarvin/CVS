@@ -20,6 +20,15 @@ package util
 
 import "fmt"
 
+func CheckNullableString(strings ...string) bool {
+	for _, s := range strings {
+		if s == "" {
+			return true
+		}
+	}
+	return false
+}
+
 func CheckError(err error) {
 	if err != nil {
 		fmt.Printf("error: %v\n", err)

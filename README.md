@@ -1,8 +1,6 @@
 # Certificate Validation Server (CVS)
 Developed by **Levi Marvin** | Powered by **Go 1.21.1**
 
-**This project is still being developing!**
-
 ## Introduction
 The Certificate Validation Server (CVS) is an application for PKI system, which used on returning the certificate
 validation result to the client.
@@ -27,11 +25,34 @@ You can get help with help command. `cvscli help`
 CVS used XML config file for storing basic settings. The path is "<executable file>/configs/cvs.xml". Please make sure
 this file is existed and correct.
 
+### `cvscli`
+cvscli supports those commands:
+- `ca` To manage the CAs in database.
+- `cert` To manage the certificates in database.
+- `db` To manage the database.
+- `distributor` To manage CRL distributors.
+- `responder` To manage OCSP responders.
+
+You can get the helps of commands via the `help` subcommand or `-h`/`--help` options.
+
+### `server`
+You can run this program to start an instance of CVS.
+
+### `configs/cvs.xml`
+This file is the core config of CVS, you can control the status of OCSP Responder and CRL Distributor,
+also include controlling the database.
+
+*The password of database has not been supported.*
+
+The server of CVS will auto binds the addresses in the config file. Please make sure the addresses are available.
+
 ## Development
+**This project is still being developing! New features will be added in the future.**
+
 The progress of coding:
 
 - [x] Basic OCSP Responder
-- [ ] Basic CRL Distributor
+- [x] Basic CRL Distributor
 - [ ] Full extensions support for OCSP Responder
 - [ ] Full types and extensions support for CRL Distributor
 

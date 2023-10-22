@@ -33,8 +33,7 @@ import (
 	"time"
 )
 
-func HttpIndexHandler(w http.ResponseWriter, r *http.Request) {
-	// Load responders from database
+func OcspHttpIndexHandler(w http.ResponseWriter, r *http.Request) {
 	// Parse received request
 	err := r.ParseForm()
 	util.CheckError(err)
@@ -68,6 +67,8 @@ func HttpIndexHandler(w http.ResponseWriter, r *http.Request) {
 		RawResponderName: responder.SigningCert.RawSubject,
 		//ResponderKeyHash:   responder.SigningCert.SubjectKeyId,
 	}
+	// Use the same hash algorithm with the request
+	ocspResponse.IssuerHash = ocspRequest.HashAlgorithm
 	// Add response extensions if extensions support is enabled
 	ocspResponse.ResponseExtensions = make([]pkix.Extension, 0)
 	if responder.FeatureTable[shared.StringNonce] {
@@ -103,6 +104,9 @@ func HttpIndexHandler(w http.ResponseWriter, r *http.Request) {
 				ocspResponse.RevocationReason = ocsp.Unspecified
 			}
 		}
+	} else {
+		// Unable to get the certificate info from database
+		ocspResponse.Status = ocsp.Unknown
 	}
 	// Set time in response
 	ocspResponse.ThisUpdate = time.Now()
@@ -126,6 +130,9 @@ func HttpIndexHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func FetchMatchedResponder(ocspRequest *ocsp.Request) (*types.Responder, error) {
+	if len(shared.Responders) == 0 {
+		return nil, errors.New("this error should not be happened, there are no responders in shared storage")
+	}
 	for _, responder := range shared.Responders {
 		if ocspRequest.IssuerKeyHash != nil {
 			keyHash := responder.HashTable[ocspRequest.HashAlgorithm.String()][shared.StringSubjectKeyHash]

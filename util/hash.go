@@ -19,11 +19,17 @@
 package util
 
 import (
-    "encoding/hex"
-    "hash"
+	"crypto/sha1"
+	"encoding/hex"
+	"hash"
 )
 
 func HashToHex(raw []byte, hash hash.Hash) string {
-    hash.Write(raw)
-    return hex.EncodeToString(hash.Sum(nil))
+	hash.Write(raw)
+	return hex.EncodeToString(hash.Sum(nil))
+}
+
+func GetKeyId(keyData []byte) []byte {
+	h := sha1.Sum(keyData)
+	return h[:]
 }

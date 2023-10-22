@@ -26,6 +26,7 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -39,6 +40,7 @@ var ConfigRoot = types.CVS{}
 
 var dao *gorm.DB
 var Responders []types.Responder
+var Distributors []types.Distributor
 
 var OcspRspAddress = ""
 var CrlDistAddress = ""
@@ -50,6 +52,9 @@ func InitSharedStorage() {
 	loadXmlConfig()
 	connectDatabase()
 	loadResponders()
+	loadDistributors()
+
+	println()
 }
 
 func GetDAO() *gorm.DB {
@@ -75,9 +80,13 @@ func connectDatabase() {
 	var err error
 	dao, err = gorm.Open(sqlite.Open(ConfigRoot.Database.FilePath), &gorm.Config{})
 	util.PanicOnError(err)
-	err = dao.AutoMigrate(&types.DbResponder{})
+	err = dao.AutoMigrate(&types.CertificateAuthorityInfo{})
 	util.CheckError(err)
 	err = dao.AutoMigrate(&types.CertificateInfo{})
+	util.CheckError(err)
+	err = dao.AutoMigrate(&types.DbCrlDistributor{})
+	util.CheckError(err)
+	err = dao.AutoMigrate(&types.DbResponder{})
 	util.CheckError(err)
 }
 
@@ -85,9 +94,20 @@ func connectDatabase() {
 func loadResponders() {
 	var dbResponders = make([]types.DbResponder, 0)
 	dao.Find(&dbResponders)
+
+	if len(dbResponders) == 0 {
+		fmt.Println("There are no responders in database, stop loading.")
+		return
+	}
+
 	for _, v := range dbResponders {
-		cacert, err := x509.ParseCertificate(v.CACertificate)
-		util.CheckError(err)
+		// Get CA
+		caInfo := types.CertificateAuthorityInfo{}
+		caInfo.ID = v.CAId
+		dao.Find(&caInfo)
+		ca, err := caInfo.ToCA()
+		util.PanicOnError(err)
+		// Load the certificate and key
 		cert, err := x509.ParseCertificate(v.SigningCertificate)
 		util.CheckError(err)
 		signer, err := util.ParsePrivateKey(v.SigningKey, v.SigningKeyType)
@@ -107,11 +127,11 @@ func loadResponders() {
 		// Build the HashTable in Responder
 		hashTable := make(map[string]map[string]string)
 		hashTable[crypto.SHA1.String()] = make(map[string]string)
-		hashTable[crypto.SHA1.String()][StringSubjectNameHash] = util.HashToHex(cacert.RawSubject, sha1.New())
-		hashTable[crypto.SHA1.String()][StringSubjectKeyHash] = util.HashToHex(cacert.SubjectKeyId, sha256.New())
+		hashTable[crypto.SHA1.String()][StringSubjectNameHash] = util.HashToHex(ca.CACert.RawSubject, sha1.New())
+		hashTable[crypto.SHA1.String()][StringSubjectKeyHash] = util.HashToHex(ca.CACert.SubjectKeyId, sha256.New())
 		hashTable[crypto.SHA256.String()] = make(map[string]string)
-		hashTable[crypto.SHA256.String()][StringSubjectNameHash] = util.HashToHex(cacert.RawSubject, sha256.New())
-		hashTable[crypto.SHA256.String()][StringSubjectKeyHash] = util.HashToHex(cacert.SubjectKeyId, sha256.New())
+		hashTable[crypto.SHA256.String()][StringSubjectNameHash] = util.HashToHex(ca.CACert.RawSubject, sha256.New())
+		hashTable[crypto.SHA256.String()][StringSubjectKeyHash] = util.HashToHex(ca.CACert.SubjectKeyId, sha256.New())
 		// Parse period time string
 		period, err := time.ParseDuration(v.UpdatePeriod)
 		util.CheckError(err)
@@ -123,9 +143,9 @@ func loadResponders() {
 		responder := types.Responder{
 			Name:              v.Name,
 			Period:            period,
-			CACert:            cacert,
-			CARawSubject:      cacert.RawSubject,
-			CARawSubjectKeyId: cacert.SubjectKeyId,
+			CACert:            ca.CACert,
+			CARawSubject:      ca.CACert.RawSubject,
+			CARawSubjectKeyId: ca.CACert.SubjectKeyId,
 			SigningCert:       cert,
 			SigningSigner:     signer,
 			FeatureTable:      featureTable,
@@ -137,6 +157,53 @@ func loadResponders() {
 	fmt.Printf("Loaded %d of all responders from database.\n", len(Responders))
 }
 
+func loadDistributors() {
+	var dbDistributors = make([]types.DbCrlDistributor, 0)
+	dao.Find(&dbDistributors)
+
+	if len(dbDistributors) == 0 {
+		fmt.Println("There are no distributors in database, stop loading.")
+		return
+	}
+
+	for _, v := range dbDistributors {
+		// Get CertificateAuthorityInfo from database via ID
+		caInfo := types.CertificateAuthorityInfo{}
+		caInfo.ID = v.CAId
+		dao.Find(&caInfo)
+		if caInfo.IsEmpty() {
+			util.PanicOnError(errors.New("unable to get ca info from database"))
+			return
+		}
+		ca, err := caInfo.ToCA()
+		util.PanicOnError(err)
+		// Parse period time string
+		period, err := time.ParseDuration(v.UpdatePeriod)
+		util.CheckError(err)
+		if err != nil {
+			fmt.Println("Parse time duration failed, using default value. (5s)")
+			period, _ = time.ParseDuration("5s")
+		}
+		util.CheckError(err)
+		// Parse raw CRL to x509.RevocationList
+		CRL, err := x509.ParseRevocationList(v.RawCRL)
+		util.PanicOnError(err)
+		distributor := types.Distributor{
+			Name:         caInfo.CommonName,
+			URIPath:      v.URIPath,
+			UpdatePeriod: period,
+			CA:           *ca,
+			Number:       v.Number,
+			CRL:          *CRL,
+		}
+		Distributors = append(Distributors, distributor)
+	}
+	fmt.Printf("Loaded %d of all distributors from database.\n", len(Distributors))
+}
+
 func printLicense() {
-	fmt.Println("Certificate Validation Server (CVS)  Copyright (C) 2023  Levi Marvin (LIU, YUANCHEN)\nThis program comes with ABSOLUTELY NO WARRANTY; for details read LICENSE.\nThis is free software, and you are welcome to redistribute it\nunder certain conditions; Read LICENSE for details.")
+	fmt.Println("Certificate Validation Server (CVS)  Copyright (C) 2023  Levi Marvin (LIU, YUANCHEN)")
+	fmt.Println("This program comes with ABSOLUTELY NO WARRANTY; for details read LICENSE.")
+	fmt.Println("This is free software, and you are welcome to redistribute it under certain conditions;")
+	fmt.Println("Read LICENSE for details.")
 }

@@ -19,9 +19,11 @@
 package main
 
 import (
+	"CVS/distributor"
 	"CVS/responder"
 	"CVS/shared"
 	"CVS/util"
+	"errors"
 	"net/http"
 )
 
@@ -33,13 +35,27 @@ func main() {
 }
 
 func runOcspResponder() {
-
+	// Check responders
+	if len(shared.Responders) == 0 {
+		util.CheckError(errors.New("no responders, but the responder function enabled"))
+		return
+	}
 	// Start Listener
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", responder.HttpIndexHandler)
+	mux.HandleFunc("/", responder.OcspHttpIndexHandler)
 	err := http.ListenAndServe(shared.OcspRspAddress, mux)
 	util.PanicOnError(err)
 }
 
 func runCrlDistributor() {
+	// Check distributors
+	if len(shared.Distributors) == 0 {
+		util.CheckError(errors.New("no distributors, but the distribution function enabled"))
+		return
+	}
+	// Start Listener
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", distributor.CrlHttpIndexHandler)
+	err := http.ListenAndServe(shared.CrlDistAddress, mux)
+	util.PanicOnError(err)
 }
