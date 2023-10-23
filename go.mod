@@ -4,8 +4,9 @@ go 1.21
 
 require (
 	github.com/spf13/cobra v1.7.0
-	gorm.io/driver/sqlite v1.5.3
-	gorm.io/gorm v1.25.4
+	golang.org/x/crypto v0.14.0
+	gorm.io/driver/sqlite v1.5.4
+	gorm.io/gorm v1.25.5
 )
 
 require (
@@ -15,3 +16,5 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.17 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 )
+
+replace golang.org/x/crypto v0.14.0 => github.com/LeviMarvin/go-x-crypto v0.14.0
