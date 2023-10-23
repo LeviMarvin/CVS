@@ -1,6 +1,8 @@
 # Certificate Validation Server (CVS)
 Developed by **Levi Marvin** | Powered by **Go 1.21.1**
 
+Open source under the GPLv3 license.
+
 ## Introduction
 The Certificate Validation Server (CVS) is an application for PKI system, which used on returning the certificate
 validation result to the client.
@@ -18,7 +20,7 @@ Notice: CVS is based on SQLite3 as its storage, and there is no plan for support
 There are two important parts: `cvscli` and `server`.
 
 `cvscli` is a Command-Line Interface tool for control CVS, it provides some useful commands.
-You can get help with help command. `cvscli help`
+You can get help with the help command (`cvscli help`).
 
 `server` is the core of CVS. You can run an instance via this file, including OCSP Responder and CRL Distributor.
 
