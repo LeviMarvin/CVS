@@ -79,7 +79,7 @@ var rootCmd = cobra.Command{
 	Use:     "cvscli",
 	Short:   "CVS Command-Line Interface tool.",
 	Long:    "CVS Command-Line Interface tool for control.",
-	Version: "prerelease-0.1",
+	Version: "V1.0",
 	Args:    cobra.ExactArgs(1),
 }
 
