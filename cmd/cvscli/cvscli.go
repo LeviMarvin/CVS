@@ -60,17 +60,17 @@ Subcommands:
     cert import - Import certificate from file into database.
     cert revoke - Revoke a certificate.
 
-    responder add - Add an OCSP responder.
-    responder del - Delete an OCSP responder.
-    responder set - Set properties of the OCSP responder.
-    responder list - List all registered responders.
+	db init - Init an empty SQLite3 database file.
 
     distributor add - Add a CRL distributor.
     distributor del - Delete a CRL distributor.
     distributor set - Set properties of the CRL distributor.
     distributor list - List all registered CRL distributors.
 
-    exec gencrl - Generate a new CRL.
+    responder add - Add an OCSP responder.
+    responder del - Delete an OCSP responder.
+    responder set - Set properties of the OCSP responder.
+    responder list - List all registered responders.
 
 Usage example:
 */
@@ -669,30 +669,71 @@ var responderSetCmd = cobra.Command{
 }
 
 func runResponderSetCmd(cmd *cobra.Command, _ []string) {
-	var dbId int
-	var nonce bool
-	var cutoff bool
-	var crlentry bool
 	var err error
-	searchCondition := types.DbResponder{}
-	searchResult := types.DbResponder{}
+	crlentry, err := cmd.Flags().GetBool("crlentry")
+	cutoff, err := cmd.Flags().GetBool("cutoff")
+	inputCAId := cmd.Flag("caid").Value.String()
+	inputCert := cmd.Flag("cert").Value.String()
 	inputId := cmd.Flag("id").Value.String()
-	if inputId == "" {
+	inputKey := cmd.Flag("key").Value.String()
+	inputKeyType := cmd.Flag("key_type").Value.String()
+	inputPeriod := cmd.Flag("period").Value.String()
+	nonce, err := cmd.Flags().GetBool("nonce")
+
+	if util.CheckNullableString(inputId) {
 		fmt.Println(constants.NoticeInvalidCommandOptions)
 		return
 	}
+
+	// Convert the string type id and caid into int
+	id, err := strconv.Atoi(inputId)
+	util.PanicOnError(err)
+	caId, err := strconv.Atoi(inputCAId)
+	util.PanicOnError(err)
+
+	// Get the CA
+	caInfo := types.CertificateAuthorityInfo{}
+	caInfo.ID = uint(caId)
+	shared.GetDAO().Find(&caInfo)
+	if caInfo.CommonName == "" {
+		fmt.Println("Unable to get the CA in database.")
+		return
+	}
+	ca, err := caInfo.ToCA()
+	util.CheckError(err)
+
+	// Load signing certificate file
+	certFile, err := os.Open(inputCert)
+	util.PanicOnError(err)
+	cert, err := util.DecodePEMCertificateFile(certFile)
+	util.PanicOnError(err)
+	// Load signing private key file
+	keyFile, err := os.Open(inputKey)
+	util.PanicOnError(err)
+	keyFileBlobs, err := io.ReadAll(keyFile)
+	keyData, _ := pem.Decode(keyFileBlobs)
+	util.PanicOnError(err)
+
+	searchCondition := types.DbResponder{}
+	searchResult := types.DbResponder{}
 	if inputId != "" {
-		dbId, err = strconv.Atoi(inputId)
+		id, err = strconv.Atoi(inputId)
 		util.PanicOnError(err)
-		searchCondition.ID = uint(dbId)
+		searchCondition.ID = uint(id)
 	}
 	dao := shared.GetDAO()
 	tx := dao.Find(&searchResult, &searchCondition)
 	if !searchResult.IsEmpty() {
 		if searchResult.ID == searchCondition.ID {
-			searchResult.EnableNonce = nonce
-			searchResult.EnableCutOff = cutoff
+			searchResult.CAId = uint(caId)
 			searchResult.EnableCrlEntry = crlentry
+			searchResult.EnableCutOff = cutoff
+			searchResult.EnableNonce = nonce
+			searchResult.Name = ca.CACert.Subject.CommonName
+			searchResult.SigningCertificate = cert.Raw
+			searchResult.SigningKey = keyData.Bytes
+			searchResult.SigningKeyType = inputKeyType
+			searchResult.UpdatePeriod = inputPeriod
 			tx.Updates(searchResult)
 		}
 	}
@@ -772,10 +813,15 @@ func main() {
 	responderCmd.AddCommand(&responderAddCmd)
 	responderDelCmd.Flags().StringP("id", "i", "", "The database ID of responder witch need to be deleted.")
 	responderCmd.AddCommand(&responderDelCmd)
+	responderSetCmd.Flags().StringP("caid", "", "", "The database ID of CA which the responder belongs.")
+	responderSetCmd.Flags().StringP("cert", "c", "", "The PEM-encoded signing certificate file which the responder belongs.")
 	responderSetCmd.Flags().BoolP("cutoff", "a", false, "Control enable/disable the Archive Cutoff. (Default: FALSE)")
 	responderSetCmd.Flags().BoolP("crlentry", "c", false, "Control enable/disable the CRL Entry. (Default: FALSE)")
 	responderSetCmd.Flags().StringP("id", "i", "", "The database ID of responder witch need to be deleted.")
+	responderSetCmd.Flags().StringP("key", "k", "", "The PEM-encoded PKCS#1 signing private key which the responder belongs.")
+	responderSetCmd.Flags().StringP("key_type", "t", "RSA", "The type of signing private key, only \"RSA\" and \"ECC\" are accepted.")
 	responderSetCmd.Flags().BoolP("nonce", "n", true, "Control enable/disable the Nonce. (Default: TRUE)")
+	responderSetCmd.Flags().StringP("period", "p", "5s", "The response update period (the next response will be generated after this time).")
 	responderCmd.AddCommand(&responderListCmd)
 	responderCmd.AddCommand(&responderSetCmd)
 
