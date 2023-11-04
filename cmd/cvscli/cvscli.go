@@ -816,7 +816,7 @@ func main() {
 	responderSetCmd.Flags().StringP("caid", "", "", "The database ID of CA which the responder belongs.")
 	responderSetCmd.Flags().StringP("cert", "c", "", "The PEM-encoded signing certificate file which the responder belongs.")
 	responderSetCmd.Flags().BoolP("cutoff", "a", false, "Control enable/disable the Archive Cutoff. (Default: FALSE)")
-	responderSetCmd.Flags().BoolP("crlentry", "c", false, "Control enable/disable the CRL Entry. (Default: FALSE)")
+	responderSetCmd.Flags().BoolP("crlentry", "", false, "Control enable/disable the CRL Entry. (Default: FALSE)")
 	responderSetCmd.Flags().StringP("id", "i", "", "The database ID of responder witch need to be deleted.")
 	responderSetCmd.Flags().StringP("key", "k", "", "The PEM-encoded PKCS#1 signing private key which the responder belongs.")
 	responderSetCmd.Flags().StringP("key_type", "t", "RSA", "The type of signing private key, only \"RSA\" and \"ECC\" are accepted.")
