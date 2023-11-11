@@ -114,7 +114,7 @@ func (certInfo CertificateInfo) ToRevocationListEntry() *x509.RevocationListEntr
 	return &entry
 }
 
-func ConvertToCertificateInfo(cert *x509.Certificate) (CertificateInfo, error) {
+func ConvertToBasicCertificateInfo(cert *x509.Certificate) (CertificateInfo, error) {
 	if cert == nil {
 		return CertificateInfo{}, errors.New("invalid input")
 	}
@@ -139,6 +139,20 @@ func ConvertToCertificateInfo(cert *x509.Certificate) (CertificateInfo, error) {
 
 	return certInfo, nil
 
+}
+
+func FetchCertIssuerID(cert *x509.Certificate, db *gorm.DB) (uint, error) {
+	if cert == nil || db == nil {
+		return 0, errors.New("invalid input")
+	}
+
+	caInfo := CertificateAuthorityInfo{}
+	db.Find(&caInfo, &CertificateAuthorityInfo{RawSubject: cert.RawIssuer})
+	if caInfo.IsEmpty() {
+		return 0, nil
+	}
+
+	return caInfo.ID, nil
 }
 
 type CertificateAuthorityInfo struct {

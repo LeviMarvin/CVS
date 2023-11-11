@@ -200,10 +200,10 @@ func runCertListCmd(_ *cobra.Command, _ []string) {
 		fmt.Println("There are no certificates in database.")
 		return
 	}
-	fmt.Println("[ID]\tSN\tPeriod\tCA\tRevoked")
+	fmt.Println("[ID]\tCA_ID\tSN\tPeriod\tIsCA\tRevoked")
 	for _, cert := range certs {
 		sn := hex.EncodeToString(cert.SerialNumber)
-		fmt.Printf("[%d]\t%-"+strconv.Itoa(len(sn))+"s\t%-30s\t%-5v\t%-5v\n", cert.ID, sn, cert.NotAfter, cert.IsCA, cert.IsRevoked)
+		fmt.Printf("[%d]\t%d\t%-"+strconv.Itoa(len(sn))+"s\t%-30s\t%-5v\t%-5v\n", cert.ID, cert.CAId, sn, cert.NotAfter, cert.IsCA, cert.IsRevoked)
 	}
 }
 
@@ -272,7 +272,7 @@ func runCertImportCmd(cmd *cobra.Command, _ []string) {
 	util.PanicOnError(err)
 	dao := shared.GetDAO()
 	util.PanicOnError(err)
-	certInfo, err := types.ConvertToCertificateInfo(cert)
+	certInfo, err := types.ConvertToBasicCertificateInfo(cert)
 	util.PanicOnError(err)
 
 	searchResult := types.CertificateInfo{}
@@ -281,6 +281,12 @@ func runCertImportCmd(cmd *cobra.Command, _ []string) {
 		fmt.Println("Duplicate item detected! Abort!")
 		return
 	}
+
+	caId, err := types.FetchCertIssuerID(cert, shared.GetDAO())
+	if caId == 0 {
+		util.CheckError(err)
+	}
+	certInfo.CAId = caId
 	dao.Save(&certInfo)
 
 	fmt.Println("Import certificate successfully!")
@@ -339,7 +345,7 @@ func runCertRevokeCmd(cmd *cobra.Command, _ []string) {
 		fileData, _ := pem.Decode(fileBlobs)
 		cert, err := x509.ParseCertificate(fileData.Bytes)
 		util.PanicOnError(err)
-		certInfo, err := types.ConvertToCertificateInfo(cert)
+		certInfo, err := types.ConvertToBasicCertificateInfo(cert)
 		util.PanicOnError(err)
 		searchResult := types.CertificateInfo{}
 		dao.Find(&searchResult, &certInfo)
