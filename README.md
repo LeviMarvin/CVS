@@ -1,8 +1,9 @@
-数字证书有效性服务器软件（简称“CVS”）由著作权人刘垣辰独立开发，现著作权人刘垣辰正申请中华人民共和国软件著作权，为证明此开源平台账号为刘垣辰本人所有与使用，在本项目位于 GitHub 开源平台上开源页面的首页添加此行文本，特此证明。
 # Certificate Validation Server (CVS)
-Developed by **Levi Marvin** | Powered by **Go 1.21.1**
+Developed by **Levi Marvin (LIU, YUANCHEN)** | Powered by **Go 1.21.1**
 
 Open source under the GPLv3 license.
+
+This software has been registered with the China Copyright Protection Center and obtained a computer software copyright registration certificate issued by the National Copyright Administration of the People's Republic of China. Copyright rights are protected by law. Registration number: `2023SR1803979`.
 
 ## Introduction
 The Certificate Validation Server (CVS) is an application for PKI system, which used on returning the certificate
