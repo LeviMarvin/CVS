@@ -29,7 +29,7 @@ import (
 	"encoding/hex"
 	"encoding/pem"
 	"fmt"
-	"gorm.io/driver/sqlite"
+	"github.com/glebarez/sqlite"
 	"io"
 	"os"
 	"strconv"

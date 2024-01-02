@@ -1,0 +1,13 @@
+id[GORM_MODEL],
+created_at[GORM_MODEL],
+updated_at[GORM_MODEL],
+deleted_at[GORM_MODEL],
+version,
+algorithm,
+
+
+
+
+
+
+pem_data,
