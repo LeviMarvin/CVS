@@ -3,7 +3,12 @@ Developed by **Levi Marvin (LIU, YUANCHEN)** | Powered by **Go 1.21.1**
 
 Open source under the GPLv3 license.
 
+## Overview
 This software has been registered with the China Copyright Protection Center and obtained a computer software copyright registration certificate issued by the National Copyright Administration of the People's Republic of China. Copyright rights are protected by law. Registration number: `2023SR1803979`.
+
+`NOTICE: This project and all of my works were never published at GitCode (an opensource platform running by CSDN)! The GitCode is violating my legal rights by mirroring my projects and works!`
+
+`通知：此项目以及本人所有项目均从来没有在 GitCode 发布且从未授权 GitCode 发布。GitCode 对本人项目未经授权的镜像行为正在侵犯我的合法权利！`
 
 ## Introduction
 The Certificate Validation Server (CVS) is an application for PKI system, which used on returning the certificate
